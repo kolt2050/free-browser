@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Proxy Logs</title>
+    <style>
+        body {
+            background-color: #0f0f12;
+            color: #d1d5db;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 10px;
+            margin: 0;
+            font-size: 13px;
+        }
+
+        #logs {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid #27272a;
+            padding-bottom: 4px;
+            word-break: break-all;
+        }
+
+        .method {
+            color: #5eead4;
+            font-weight: bold;
+        }
+
+        .url {
+            color: #a78bfa;
+        }
+
+        .proxy {
+            color: #fdba74;
+            font-size: 11px;
+        }
+
+        .status-code {
+            font-weight: bold;
+            margin-right: 5px;
+            font-size: 11px;
+        }
+
+        .pending {
+            color: #6b7280;
+        }
+
+        .success {
+            color: #4ade80;
+        }
+
+        .redirect {
+            color: #fbbf24;
+        }
+
+        .error {
+            color: #f87171;
+        }
+
+        .controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .clear-btn,
+        select {
+            background: #3f3f46;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        .clear-btn:hover,
+        select:hover {
+            background: #52525b;
+        }
+
+        /* Filtering logic */
+        body.filter-success .log-entry:not([data-level="success"]),
+        body.filter-warning .log-entry:not([data-level="warning"]),
+        body.filter-error .log-entry:not([data-level="error"]) {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="filter-error">
+    <div class="controls">
+        <select id="levelFilter" onchange="document.body.className = this.value">
+            <option value="filter-all">All</option>
+            <option value="filter-success">Success (2xx)</option>
+            <option value="filter-warning">Warning (3xx, 4xx)</option>
+            <option value="filter-error" selected>Error (5xx, net::ERR)</option>
+        </select>
+        <button class="clear-btn" onclick="document.getElementById('logs').innerHTML=''">Clear</button>
+    </div>
+    <div id="logs" style="margin-top: 30px;"></div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        const logsDiv = document.getElementById('logs');
+
+        ipcRenderer.on('network-log', (event, log) => {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.id = `log-entry-${log.id}`;
+            entry.dataset.level = 'pending';
+
+            entry.innerHTML = `
+                <div><span class="status-code pending" id="status-${log.id}">[PENDING]</span> <span class="method">${log.method}</span> <span class="url">${log.url}</span></div>
+                <div class="proxy">Proxy: ${log.proxy || 'None / Direct'}</div>
+            `;
+
+            logsDiv.appendChild(entry);
+
+            // Auto-scroll to bottom
+            window.scrollTo(0, document.body.scrollHeight);
+
+            // Limit to 500 entries to prevent memory issues
+            while (logsDiv.children.length > 500) {
+                logsDiv.removeChild(logsDiv.firstChild);
+            }
+        });
+
+        ipcRenderer.on('network-log-done', (event, data) => {
+            const statusSpan = document.getElementById(`status-${data.id}`);
+            const entry = document.getElementById(`log-entry-${data.id}`);
+            if (statusSpan && entry) {
+                statusSpan.classList.remove('pending');
+                if (data.statusCode) {
+                    statusSpan.textContent = `[${data.statusCode}]`;
+                    if (data.statusCode >= 200 && data.statusCode < 300) {
+                        statusSpan.classList.add('success');
+                        entry.dataset.level = 'success';
+                    } else if (data.statusCode >= 300 && data.statusCode < 500) {
+                        statusSpan.classList.add('redirect');
+                        entry.dataset.level = 'warning';
+                    } else {
+                        statusSpan.classList.add('error');
+                        entry.dataset.level = 'error';
+                    }
+                } else if (data.error) {
+                    statusSpan.textContent = `[${data.error}]`;
+                    statusSpan.classList.add('error');
+                    entry.dataset.level = 'error';
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

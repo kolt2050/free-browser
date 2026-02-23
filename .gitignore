@@ -1,0 +1,25 @@
+# Environment variables
+.env
+.env.*
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+release/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDEs and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Agent files
+.agent/
+.gemini/

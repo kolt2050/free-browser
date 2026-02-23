@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Radar</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f3f4f6;
+            color: #111827;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #374151;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .count-badge {
+            background: #3b82f6;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+        }
+
+        #resourceList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+
+        #resourceList li {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.9rem;
+            word-break: break-all;
+            display: flex;
+            align-items: center;
+        }
+
+        #resourceList li:last-child {
+            border-bottom: none;
+        }
+
+        #resourceList li:hover {
+            background: #f9fafb;
+        }
+
+        .domain-icon {
+            margin-right: 10px;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>
+        Detected Resources
+        <span class="count-badge" id="countBadge">0</span>
+    </h2>
+    <ul id="resourceList"></ul>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const resourceList = document.getElementById('resourceList');
+        const countBadge = document.getElementById('countBadge');
+        const resources = new Set();
+
+        ipcRenderer.on('tracked-resource', (event, domain) => {
+            if (!resources.has(domain)) {
+                resources.add(domain);
+                renderList();
+            }
+        });
+
+        function renderList() {
+            const sorted = Array.from(resources).sort((a, b) => a.localeCompare(b));
+            countBadge.innerText = sorted.length;
+
+            resourceList.innerHTML = '';
+            sorted.forEach(domain => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span class="domain-icon">🌐</span> ${domain}`;
+                resourceList.appendChild(li);
+            });
+        }
+    </script>
+</body>
+
+</html>

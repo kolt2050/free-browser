@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f3f4f6;
+            color: #111827;
+            padding: 16px;
+            font-size: 13px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            color: #374151;
+        }
+
+        .count-badge {
+            background: #8b5cf6;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .toolbar input {
+            flex: 1;
+            padding: 6px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 12px;
+            outline: none;
+            background: white;
+        }
+
+        .toolbar input:focus {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+        }
+
+        .toolbar button {
+            padding: 6px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: white;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .toolbar button:hover {
+            background: #f9fafb;
+        }
+
+        .toolbar button.danger {
+            color: #dc2626;
+            border-color: #fecaca;
+        }
+
+        .toolbar button.danger:hover {
+            background: #fef2f2;
+        }
+
+        .domain-group {
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+
+        .domain-header {
+            padding: 8px 14px;
+            background: #f9fafb;
+            font-weight: 600;
+            font-size: 12px;
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e5e7eb;
+            user-select: none;
+        }
+
+        .domain-header:hover {
+            background: #f3f4f6;
+        }
+
+        .domain-header .arrow {
+            transition: transform 0.2s;
+            font-size: 10px;
+        }
+
+        .domain-header.collapsed .arrow {
+            transform: rotate(-90deg);
+        }
+
+        .cookie-row {
+            padding: 6px 14px;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .cookie-row:last-child {
+            border-bottom: none;
+        }
+
+        .cookie-name {
+            font-weight: 600;
+            color: #7c3aed;
+            min-width: 140px;
+            max-width: 200px;
+            word-break: break-all;
+            flex-shrink: 0;
+        }
+
+        .cookie-value {
+            color: #374151;
+            flex: 1;
+            word-break: break-all;
+            max-height: 40px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .cookie-meta {
+            font-size: 10px;
+            color: #9ca3af;
+            min-width: 60px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+
+        .container {
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h2>🍪 Cookies</h2>
+        <span class="count-badge" id="countBadge">0</span>
+    </div>
+    <div class="toolbar">
+        <input type="text" id="searchInput" placeholder="Search by name or domain..." />
+        <button onclick="refreshCookies()">↻ Refresh</button>
+    </div>
+    <div class="container" id="container">
+        <div class="empty">Loading cookies...</div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const container = document.getElementById('container');
+        const countBadge = document.getElementById('countBadge');
+        const searchInput = document.getElementById('searchInput');
+        let allCookies = [];
+        const collapsedDomains = new Set();
+
+        function refreshCookies() {
+            ipcRenderer.send('get-cookies');
+        }
+
+        ipcRenderer.on('cookies-data', (event, cookies) => {
+            allCookies = cookies;
+            renderCookies();
+        });
+
+        searchInput.addEventListener('input', () => renderCookies());
+
+        function renderCookies() {
+            const query = searchInput.value.toLowerCase();
+            const filtered = allCookies.filter(c =>
+                c.name.toLowerCase().includes(query) ||
+                c.domain.toLowerCase().includes(query)
+            );
+
+            countBadge.innerText = filtered.length;
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty">No cookies found</div>';
+                return;
+            }
+
+            // Group by domain
+            const groups = {};
+            filtered.forEach(c => {
+                const domain = c.domain.replace(/^\./, '');
+                if (!groups[domain]) groups[domain] = [];
+                groups[domain].push(c);
+            });
+
+            const sortedDomains = Object.keys(groups).sort();
+            let html = '';
+
+            sortedDomains.forEach(domain => {
+                const cookies = groups[domain];
+                const isCollapsed = collapsedDomains.has(domain);
+                html += `<div class="domain-group">`;
+                html += `<div class="domain-header ${isCollapsed ? 'collapsed' : ''}" onclick="toggleDomain('${domain}')">
+                    <span>${domain} (${cookies.length})</span>
+                    <span class="arrow">▼</span>
+                </div>`;
+                if (!isCollapsed) {
+                    cookies.sort((a, b) => a.name.localeCompare(b.name)).forEach(c => {
+                        const flags = [
+                            c.secure ? '🔒' : '',
+                            c.httpOnly ? 'H' : '',
+                            c.session ? 'S' : ''
+                        ].filter(Boolean).join(' ');
+                        const val = c.value.length > 120 ? c.value.substring(0, 120) + '…' : c.value;
+                        html += `<div class="cookie-row">
+                            <span class="cookie-name">${escapeHtml(c.name)}</span>
+                            <span class="cookie-value">${escapeHtml(val)}</span>
+                            <span class="cookie-meta">${flags}</span>
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function toggleDomain(domain) {
+            if (collapsedDomains.has(domain)) collapsedDomains.delete(domain);
+            else collapsedDomains.add(domain);
+            renderCookies();
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Initial load
+        refreshCookies();
+    </script>
+</body>
+
+</html>
