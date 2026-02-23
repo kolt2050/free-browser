@@ -16,7 +16,8 @@
 *   **Auto-Cleanup on Startup**: The browser always starts completely clean. Cookies, cache, and local storage are forcefully deleted on every startup.
 *   **Auto-Country Detection**: When connecting a proxy, the browser automatically detects the country (GeoIP) and configures the locale, timezone, and language.
 *   **Dynamic Proxy Configuration**: Manage network connections through an interface with authorization support.
-*   **Safe Start**: Complete block of network activity until the configuration is confirmed by the user.
+*   **Safe Start & Kill Switch**: Complete block of network activity until the configuration is confirmed by the user. If the proxy connection drops or fails, all connections are instantly terminated to prevent traffic leakage.
+*   **Strict System Isolation**: The browser does not pull any configuration, data, or settings from the host operating system.
 *   **Compatibility and Rendering Technologies**:
     *   **User-Agent** spoofing to match modern standards (Chrome 120).
     *   Synchronization of timezones and locales with proxy parameters.
